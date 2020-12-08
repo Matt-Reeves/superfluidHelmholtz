@@ -2,7 +2,7 @@
 <name>dGPE_Dynamics</name>
 <author>Matt Reeves</author>
 <description>
-Stir an througuh an ellipse with two stirrers at the edges. The ellipse is rotated 45 degrees. 
+Simulate driven Hemlholtz superfluid resonator with reservoir driving and loss
 </description>
 
 <features>
