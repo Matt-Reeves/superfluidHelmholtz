@@ -1,0 +1,149 @@
+<simulation xmds-version="2">
+<name>dGPE_Dynamics</name>
+<author>Matt Reeves</author>
+<description>
+Stir an througuh an ellipse with two stirrers at the edges. The ellipse is rotated 45 degrees. 
+</description>
+
+<features>
+    <validation kind="run-time" />
+     <arguments>
+        <argument name="xmin" type="real" default_value="-128.0"/>
+        <argument name="xmax" type="real" default_value="128.0"/>
+        <argument name="ymin" type="real" default_value="-128.0"/>
+        <argument name="ymax" type="real" default_value="128.0"/>
+        <argument name="numGridPoints1" type="integer" default_value="256"/>
+        <argument name="numGridPoints2" type="integer" default_value="256"/>
+        <argument name="gamma0" type="real" default_value="0.02"/>
+    </arguments>
+
+    <auto_vectorise />
+    <diagnostics />
+    <benchmark />
+    <!--     <openmp /> -->
+    <bing />
+    <fftw plan="patient" threads ="4" />
+    <globals>
+    <![CDATA[
+    	 const double  Uint = 1;
+         const double mu0 = 1.0;
+         const double R1 = 100;
+         const double R2 = 40;
+	 ]]>
+    </globals>
+</features>
+
+<driver name="distributed-mpi" /> 
+
+<geometry>
+    <propagation_dimension> t </propagation_dimension>
+    <transverse_dimensions>
+	<dimension name="x" lattice="numGridPoints1"  domain="(xmin, xmax)" />	
+	<dimension name="y" lattice="numGridPoints2"  domain="(ymin, ymax)" />
+	</transverse_dimensions>
+</geometry>
+
+<vector name="potential" dimensions="x y" type="real">
+	<components> V </components>
+    <initialisation kind = "hdf5"> 
+        <filename> Potential.h5 </filename>
+    </initialisation>
+</vector>
+<vector name="init_wavefunction" dimensions="x y" type="real">
+	<components> phiR phiI </components>
+    <initialisation kind = "hdf5"> 
+        <filename> Groundstate.h5 </filename>
+    </initialisation>
+</vector>
+
+
+<!-- <vector name="gainloss" dimensions="x y" type="real">
+<components> V2 loss loss2</components>
+<initialisation>
+<dependencies> </dependencies>
+<![CDATA[
+if (x*x+y*y>110*110){
+        V2 = 1.7;
+        loss = 1.5;
+    }
+    if (x*x+y*y < 80*80){
+      V2 = 1.0;
+      loss = 0.0005;
+      loss2 = 0.0;
+      }
+    ]]>
+</initialisation>
+</vector> -->
+
+<vector name="gainloss" dimensions="x y" type="real">
+<components> V2 loss </components>
+<initialisation kind = "hdf5">
+    <filename> Losses.h5 </filename>
+</initialisation>
+</vector>
+
+<noise_vector name="initial_noise" dimensions="x y" type = "real" kind = "gauss">
+    <components> fuzz1 fuzz2 </components>
+</noise_vector>
+
+<vector name="wavefunction" dimensions = "x y" type = "complex">
+    <components> phi </components>
+    <initialisation>
+        <dependencies> init_wavefunction initial_noise  </dependencies>
+        <![CDATA[ 
+             phi = phiR + i*phiI;
+             phi += 1e-3*(fuzz1 + i*fuzz2);
+        ]]>
+    </initialisation>
+</vector>
+
+<computed_vector name="kinetic" dimensions="x y" type="complex">
+    <components>  KE  </components>
+    <evaluation>
+    <dependencies basis = "kx ky"> wavefunction </dependencies>
+    <![CDATA[
+    KE =  0.5*(kx*kx+ky*ky)*phi;
+        ]]>
+     </evaluation>
+</computed_vector>
+
+<sequence cycles = "1000">
+    <filter>
+        <![CDATA[ printf("Hello world from a filter segment!\n");  ]]>
+    </filter>
+    <integrate algorithm="ARK45" interval="10" steps ='2000' tolerance="1e-6" >
+        <samples> 1 </samples>
+        <operators>
+            <operator kind="ex" constant="yes" type = "complex">
+            <operator_names>T </operator_names>
+            <![CDATA[
+                T = -0.5*(i)*(kx*kx + ky*ky);
+             ]]>
+            </operator>
+            <integration_vectors>wavefunction</integration_vectors>
+            <dependencies basis = "x y"> potential gainloss kinetic </dependencies> 
+            <![CDATA[
+            dphi_dt = T[phi] + i*(mu0-V-mod2(phi))*phi - gamma0*loss*(KE+(mod2(phi)+V-V2)*phi);
+            // -loss2*phi;
+            
+    	    ]]>
+        </operators>
+     </integrate>
+     <breakpoint   format = "hdf5" >
+        <dependencies basis="x y">wavefunction </dependencies>
+    </breakpoint>
+</sequence>
+
+<output format = "hdf5" filename = "JUNK_OUT.xsil">
+<sampling_group basis="x y" initial_sample="no">
+<moments> JUNK1 JUNK2 </moments>
+<dependencies> gainloss  </dependencies>
+<![CDATA[
+JUNK1 = loss;
+JUNK2 = V2;
+         ]]> 
+</sampling_group>
+</output> 
+
+</simulation>
+
