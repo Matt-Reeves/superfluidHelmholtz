@@ -1,4 +1,4 @@
-# superfluidHelmholtz
+# Superfluid Helmholtz
 
 Some basic XMDS and MATLAB code to simulate a driven superfluid Helmholtz resonator as in the experiment:
 
