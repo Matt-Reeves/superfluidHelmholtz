@@ -1,3 +1,3 @@
 # superfluidHelmholtz
 
-<img align="right" src="./Helmholtz.png" width="150" height="150">
+<img align="center" src="./Helmholtz.png" width="300" height="300">
